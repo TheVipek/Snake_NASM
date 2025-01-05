@@ -30,3 +30,35 @@
 *.exe
 *.out
 *.app
+
+# JetBrains IDE-specific files
+.idea/
+cmake-build-*/
+*.iml
+*.iws
+*.ipr
+
+
+# CMake build files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+build/
+
+# Assembler output files
+*.o         # Object files
+*.obj       # Object files (Windows-specific)
+*.bin       # Binary output
+*.elf       # Executable and Linkable Format
+*.exe       # Windows executables
+*.map       # Linker map files
+*.lst       # Listing files
+*.out       # Output executables
+*.srec      # S-record files
+*.hex       # Hexadecimal output
+
+
+.vs
