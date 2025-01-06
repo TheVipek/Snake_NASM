@@ -1,83 +1,71 @@
+;nasm -fwin64 -o main.obj main.asm
+;nasm -fwin64 -o logic.obj logic.asm
+;ld -o program.exe logic.obj main.obj -lkernel32 -luser32
+;objdump -D main.obj
+
 bits 64
 default rel
 
-section .data
-    className db "MyWindowClass", 0       ; Null-terminated string
-    windowTitle db "Hello, NASM Window!", 0
-    hInstance dq 0                        ; Initialized variable for application instance handle
-
-section .bss
-    msg resb 48                           ; Buffer for MSG structure (uninitialized)
-
-section .text
 global _start
-extern GetModuleHandleA
+extern ExitProcess
 extern RegisterClassExA
 extern CreateWindowExA
+extern MessageBoxA
 extern ShowWindow
-extern DefWindowProcA
-extern ExitProcess
+extern UpdateWindow
+
+section .data
+className db 'SnakeGame', 0
+text  db 'Hello World!', 0
+title db 'Snake Game', 0
+
+
+section .bss
+
+
+section .text
 
 _start:
-    ; Get the module handle
-    xor rcx, rcx                          ; NULL for current process
-    call GetModuleHandleA                 ; hInstance = GetModuleHandleA(NULL)
-    mov [hInstance], rax                  ; Store the instance handle
+    sub rsp, 28h      ; reserve shadow space and make RSP%16 == 0
+    ;mov rcx, 0       ; hWnd = HWND_DESKTOP
+    ;lea rdx,[text]    ; LPCSTR lpText
+    ;lea r8,[title]   ; LPCSTR lpCaption
+    ;mov r9d, 0       ; uType = MB_OK
 
-    ; Register the window class
-    sub rsp, 56                           ; Allocate space for WNDCLASSEX structure
-    mov rax, rsp                          ; rax = pointer to WNDCLASSEX structure
-    mov dword [rax], 48                   ; cbSize = sizeof(WNDCLASSEX)
-    mov dword [rax + 4], 0x0003           ; style = CS_HREDRAW | CS_VREDRAW
-    lea rdx, [windowProc]                 ; lpfnWndProc = address of window procedure
-    mov [rax + 8], rdx
-    mov [rax + 16], 0                     ; cbClsExtra = 0
-    mov [rax + 20], 0                     ; cbWndExtra = 0
-    mov rdx, [hInstance]                  ; hInstance = application instance handle
-    mov [rax + 24], rdx
-    mov [rax + 32], 0                     ; hIcon = NULL
-    mov [rax + 40], 0                     ; hCursor = NULL
-    mov [rax + 48], 6                     ; hbrBackground = COLOR_WINDOW+1
-    lea rdx, [className]                  ; lpszClassName = address of className
-    mov [rax + 56], rdx
-    xor rdx, rdx                          ; lpszMenuName = NULL
-    mov [rax + 64], rdx
-    call RegisterClassExA                 ; Call WinAPI function
+    ;call MessageBoxA
 
-    ; Create the window
-    xor rcx, rcx                          ; dwExStyle = 0
-    lea rdx, [className]                  ; lpClassName = address of className
-    lea r8, [windowTitle]                 ; lpWindowName = address of windowTitle
-    mov r9d, 0xcf0000                     ; dwStyle = WS_OVERLAPPEDWINDOW
-    sub rsp, 40                           ; Align stack and reserve shadow space
-    mov qword [rsp + 0], 0                ; X = CW_USEDEFAULT
-    mov qword [rsp + 8], 0                ; Y = CW_USEDEFAULT
-    mov qword [rsp + 16], 800             ; nWidth = 800
-    mov qword [rsp + 24], 600             ; nHeight = 600
-    mov qword [rsp + 32], 0               ; hWndParent = NULL
-    mov qword [rsp + 40], 0               ; hMenu = NULL
-    mov rdx, [hInstance]                  ; hInstance = application instance handle
-    mov qword [rsp + 48], rdx
-    mov qword [rsp + 56], 0               ; lpParam = NULL
-    call CreateWindowExA                  ; Call CreateWindowExA
+    mov rcx, 0  ; dwExStyle
+    lea rdx, [className] ; lpClassName
+    lea r8, [title] ; lpWindowName
+    mov r9, 0 ; dwStyle
 
-    ; Show the window
-    mov rcx, rax                          ; hWnd = return value of CreateWindowExA
-    mov rdx, 1                            ; nCmdShow = SW_SHOWNORMAL
-    call ShowWindow                       ; Call ShowWindow
+     push 0              ; lpParam
+    push 0              ; hInstance
+    push 0              ; hMenu
+    push 0              ; hWndParent
+    push 480            ; nHeight
+    push 640            ; nWidth
+    push 100            ; Y
+    push 100            ; X
 
-    ; Exit process
-    xor rcx, rcx                          ; Exit code = 0
-    call ExitProcess                      ; Call ExitProcess
+    call CreateWindowExA
 
-; Minimal Window Procedure
-section .text
-global windowProc
-windowProc:
-    ; Call DefWindowProcA for unhandled messages
-    mov rcx, rdi                         ; HWND
-    mov rdx, rsi                         ; Message
-    mov r8, rdx                          ; wParam
-    mov r9, rcx                          ; lParam
-    call DefWindowProcA
-    ret
+    test eax, eax           ; Check if window creation failed
+    jz exit_program         ; Exit if failed
+
+    ; Show and Update the Window
+    mov rcx, rax            ; HWND (handle to the window)
+    mov edx, 1              ; nCmdShow = SW_SHOWNORMAL
+    call ShowWindow
+
+    mov rcx, rax            ; HWND
+    call UpdateWindow
+
+
+exit_program:
+   mov  ecx,eax        ; exit status = return value of MessageBoxA
+   call ExitProcess
+
+   add rsp, 28h       ; if you were going to ret, restore RSP
+
+   hlt     ; privileged instruction that crashes if ever reached.
