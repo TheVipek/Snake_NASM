@@ -1,8 +1,3 @@
-;nasm -fwin64 -o main.obj main.asm
-;nasm -fwin64 -o logic.obj logic.asm
-;ld -o program.exe logic.obj main.obj -lkernel32 -luser32
-;objdump -D main.obj
-
 bits 64
 default rel
 

@@ -2,18 +2,25 @@ bits 64
 default rel
 
 global init
+global board
+global move
+global snake
 
+global BOARD_SIZE
 section .data
 
 %define BOARD_SIZE 64
+
+%define SNAKE_HEAD_STARTING_POSITION (BOARD_SIZE * BOARD_SIZE) / 2
 %define START_SNAKE_SIZE 3
 %define SNAKE_HEAD_VALUE 4
 %define SNAKE_TAIL_VALUE 2
+
+
 isDead DB 0
 
 section .bss
 board RESB BOARD_SIZE * BOARD_SIZE
-
 
 section .text
 init:
@@ -58,7 +65,6 @@ prepareBoard:
 
 prepareSnake:
     lea rdi, board
-
     mov r10, BOARD_SIZE
     dec r10
     shr r10, 1 ; middle row
@@ -75,11 +81,14 @@ snake_loop:
     add rax, r11 ; offset (column)
 
     mov byte [rdi + rax], dl ;
-
     inc r11
-
     mov rdx, SNAKE_TAIL_VALUE
     loop snake_loop ; it will work until rcx > 0 (SNAKE_SIZE)
     ret
 
+move:
+    ; rdi = X, rsi = Y
+    lea rbx, board         ; Load address of board into rbx
 
+
+    ret
