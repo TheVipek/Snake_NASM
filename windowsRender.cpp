@@ -2,19 +2,27 @@
 //nasm -fwin64 -o logic.obj logic.asm
 #include <windows.h>
 #include <random>
-
+#include <sstream>
+#include <string>
 LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
-MSG Msg;
+MSG msg;
 std::random_device rd;
 
-extern "C" void init();
 extern "C" unsigned char board[];
+extern "C" unsigned char snake[];
+extern "C" int snakeSize;
+struct SnakeElement {
+    int PosX;
+    int PosY;
+};
 
-extern "C" void move(int x, int y);
-
+extern "C" void init();
+extern "C" void move(int row, int column);
 #define BOARD_SIZE 64
 #define CELL_SIZE 16
 #define GAP_SIZE 1
+
+
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow )
 {
     std::mt19937 gen(rd());
@@ -75,13 +83,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     ShowWindow( hwnd, nCmdShow );
     UpdateWindow( hwnd );
 
-    //Msg loop
-    while( GetMessage( & Msg, NULL, 0, 0 ) )
-    {
-        TranslateMessage( & Msg );
-        DispatchMessage( & Msg );
+    SetTimer(hwnd, 999, 33, NULL);
+
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
-    return Msg.wParam;
+    return(int)msg.wParam;
 }
 LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
@@ -90,16 +98,24 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
         case WM_KEYDOWN:
             switch (wParam) {
                 case VK_UP:
-                  move(0, 1);
+                  move(-1, 0);
+                // InvalidateRect(hwnd, NULL, FALSE);
+                //   UpdateWindow(hwnd);
                 break;
                 case VK_DOWN:
-                    move(0, -1);
+                    move(1, 0);
+                // InvalidateRect(hwnd, NULL, FALSE);
+                // UpdateWindow(hwnd);
                 break;
                 case VK_LEFT:
-                    move(-1, 0);
+                    move(0, -1);
+                // InvalidateRect(hwnd, NULL, FALSE);
+                // UpdateWindow(hwnd);
                 break;
                 case VK_RIGHT:
-                      move(1, 0);
+                      move(0, 1);
+                 // InvalidateRect(hwnd, NULL, FALSE);
+                 //  UpdateWindow(hwnd);
                 break;
                 default:
                 break;
@@ -109,11 +125,13 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
 
-            //Background
-            HBRUSH backgroundBrush = CreateSolidBrush(RGB(232, 232, 232));
-            RECT backgroundRect = { 0, 0, ps.rcPaint.right, ps.rcPaint.bottom };
-            FillRect(hdc, &backgroundRect, backgroundBrush);
-            DeleteObject(backgroundBrush);
+            HDC memDC = CreateCompatibleDC(hdc);
+            int width = ps.rcPaint.right - ps.rcPaint.left;
+            int height = ps.rcPaint.bottom - ps.rcPaint.top;
+            HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
+            HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
+
+            FillRect(memDC, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW+1));
 
             int gridWidth = (BOARD_SIZE * CELL_SIZE) + ((BOARD_SIZE - 1) * GAP_SIZE);
             int gridHeight = (BOARD_SIZE * CELL_SIZE) + ((BOARD_SIZE - 1) * GAP_SIZE);
@@ -126,6 +144,11 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
             int offsetX = (clientWidth - gridWidth) / 2;
             int offsetY = (clientHeight - gridHeight) / 2;
 
+            //Background
+            HBRUSH backgroundBrush = CreateSolidBrush(RGB(232, 232, 232));
+            RECT backgroundRect = { 0, 0, ps.rcPaint.right, ps.rcPaint.bottom };
+            FillRect(memDC, &backgroundRect, backgroundBrush);
+            DeleteObject(backgroundBrush);
             //Grid
             for (int i = 0; i < BOARD_SIZE; i++) {
                 for (int j = 0; j < BOARD_SIZE; j++) {
@@ -143,35 +166,72 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                         offsetX + j * (CELL_SIZE + GAP_SIZE) + CELL_SIZE,
                         offsetY + i * (CELL_SIZE + GAP_SIZE) + CELL_SIZE
                     };
-                    FillRect(hdc, &cell, brush);
+                    FillRect(memDC, &cell, brush);
                     DeleteObject(brush);
                 }
             }
 
-            //Snake
-            for (int i = 0; i < BOARD_SIZE; i++) {
-                for (int j = 0; j < BOARD_SIZE; j++) {
-                    int value = board[i * BOARD_SIZE + j];
-                    HBRUSH brush;
-
-                    if (value == 4) // Snake head
-                        brush = CreateSolidBrush(RGB(0, 255, 0));
-                    else if (value == 2) // Snake tail
-                        brush = CreateSolidBrush(RGB(0, 200, 0));
-
-                    RECT cell = {
-                        offsetX + j * (CELL_SIZE + GAP_SIZE) ,
-                        offsetY + i * (CELL_SIZE + GAP_SIZE) ,
-                        offsetX + j * (CELL_SIZE + GAP_SIZE) + CELL_SIZE,
-                        offsetY + i * (CELL_SIZE + GAP_SIZE) + CELL_SIZE
-                    };
-                    FillRect(hdc, &cell, brush);
-                    DeleteObject(brush);
+            SnakeElement* snakeArray = reinterpret_cast<SnakeElement*>(snake);
+            // std::ostringstream oss;
+            // oss << "Wielkosc snakeArray: " << sizeof(snakeArray) << "Ilosc; " << snakeSize;
+            // std::string wynik = oss.str();
+            // MessageBox(
+            //       NULL,
+            //       wynik.c_str(),
+            //       "Spawn snake try",
+            //       MB_OK | MB_ICONINFORMATION
+            //   );
+            for (size_t i = 0; i < snakeSize; ++i) {
+                SnakeElement& elem = snakeArray[i];
+                // std::ostringstream oss;
+                // oss << "Pozycja X: " << elem.PosX << "Pozycja Y:" << elem.PosY;
+                // std::string wynik = oss.str();
+              //   MessageBox(
+              //     NULL,
+              //     wynik.c_str(),
+              //     "Spawn snake try",
+              //     MB_OK | MB_ICONINFORMATION
+              // );
+                HBRUSH brush;
+                if (i == 0) {
+                    brush = CreateSolidBrush(RGB(0, 255, 0));
                 }
+                else {
+                    brush = CreateSolidBrush(RGB(0, 200, 0));
+                }
+
+                RECT cell = {
+                    offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) ,
+                    offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) ,
+                    offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) + CELL_SIZE,
+                    offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) + CELL_SIZE
+                };
+                FillRect(memDC, &cell, brush);
+                DeleteObject(brush);
             }
+            BitBlt(hdc,
+                ps.rcPaint.left,
+                ps.rcPaint.top,
+                width,
+                height,
+                memDC,
+                ps.rcPaint.left,
+                ps.rcPaint.top,
+                SRCCOPY);
+
+            SelectObject(memDC, oldBitmap);
+            DeleteObject(memBitmap);
+            DeleteDC(memDC);
 
             EndPaint(hwnd, &ps);
         } break;
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_TIMER:
+        {
+            InvalidateRect(hwnd, NULL, FALSE);
+            return 0;
+        }
         case WM_CLOSE:
             DestroyWindow( hwnd );
         break;
