@@ -76,7 +76,6 @@ prepareBoard:
 
 
 prepareSnake:
-    lea rdi, board
     lea rbx, snake
     ;lea r15, snakeSize
 
@@ -112,20 +111,19 @@ snake_loop:
     ret
 
 
-; rdi = dir X, rsi = dir Y
+; windows platform
+; rcx = dir X, rdx = dir Y
 move:
     lea rbx, [snake]
-    lea rbp, [snakeSize]
-
+    mov rbp, [snakeSize]
     ;save old pos
-    mov  r14, [rbx + SNAKE_PosX_Offset]
-    mov  r15, [rbx + SNAKE_PosX_Offset]
+    mov r14d, [rbx + SNAKE_PosX_Offset]
+    mov r15d, [rbx + SNAKE_PosY_Offset]
 
     ;update this pos
-    add dword [rbx + SNAKE_PosX_Offset], ecx
-    add dword [rbx + SNAKE_PosY_Offset], edx
+    add [rbx + SNAKE_PosX_Offset], ecx
+    add [rbx + SNAKE_PosY_Offset], edx
 
-    ret
 
     ; currIdx
     mov r10, 0
@@ -143,21 +141,20 @@ propagate_loop:
     lea r11, [rbx + r10 * 8]
 
     ; save old this val
-    mov ecx, [r11 + SNAKE_PosX_Offset]
-    mov edx, [r11 + SNAKE_PosY_Offset]
+    mov  ecx, [r11 + SNAKE_PosX_Offset]
+    mov  edx, [r11 + SNAKE_PosY_Offset]
 
     ;update this val
-    mov [r11 + SNAKE_PosX_Offset], r14
-    mov [r11 + SNAKE_PosY_Offset], r15
+    mov dword [r11 + SNAKE_PosX_Offset], r14d
+    mov dword [r11 + SNAKE_PosY_Offset], r15d
 
     ;update old this val
-    mov ecx, r14d
-    mov edx, r15d
+    mov r14d, ecx
+    mov r15d, edx
     inc r10
 
-    ret
     cmp r10, rbp
-    jge propagate_loop
+    jl propagate_loop
 
 done:
     ret
