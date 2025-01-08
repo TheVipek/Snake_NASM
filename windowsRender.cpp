@@ -18,8 +18,9 @@ struct SnakeElement {
 
 extern "C" void init();
 extern "C" void move(int row, int column);
-#define BOARD_SIZE 64
-#define CELL_SIZE 16
+extern "C" bool spawn_food(int row, int column);
+#define BOARD_SIZE 24
+#define CELL_SIZE 40
 #define GAP_SIZE 1
 
 
@@ -29,6 +30,11 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     //from assembly
     init();
 
+    std::uniform_int_distribution<> genX(0, BOARD_SIZE);
+    std::uniform_int_distribution<> genY(0, BOARD_SIZE);
+    int x = genX(gen);
+    int y = genY(gen);
+    while(!spawn_food(x, y)){}
 
 
     //Register class
@@ -155,10 +161,11 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                     int value = board[i * BOARD_SIZE + j];
                     HBRUSH brush;
 
-                    if(value == 1) // food
+                    if(value == 1)  // food
                         brush = CreateSolidBrush(RGB(255, 46, 46));
                     else // Empty cell
                         brush = CreateSolidBrush(RGB(255, 255, 255));
+
 
                     RECT cell = {
                         offsetX + j * (CELL_SIZE + GAP_SIZE) ,
