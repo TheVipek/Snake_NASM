@@ -8,15 +8,14 @@ global snake
 global snakeSize
 global BOARD_SIZE
 global spawn_food
-global g_pick_food_callback
 
 extern try_spawn_food
 
-struc SnakeSegment
-    .PosX resd 1        ; 4 bytes
-    .PosY resd 1        ; 4 bytes
-    .OldPosX resd 1        ; 4 bytes
-    .OldPosY resd 1        ; 4 bytes
+struc SnakeSegment ; 16bytes
+    .PosX resd 1
+    .PosY resd 1
+    .OldPosX resd 1
+    .OldPosY resd 1
 endstruc
 
 section .data
@@ -113,13 +112,15 @@ prepareSnake:
     mov rcx, START_SNAKE_SIZE
     mov rdx, SNAKE_HEAD_VALUE
 .snake_loop:
-
     ; adress for target struc
-    lea r13, [rbx + r12 * 8]
+    imul rax, r12, SnakeSegment_size
+    lea r13, [rbx + rax]
 
 
     mov dword [r13 + SnakeSegment.PosX], r10d
     mov dword [r13 + SnakeSegment.PosY], r11d
+    mov dword [r13 + SnakeSegment.OldPosX], r10d
+    mov dword [r13 + SnakeSegment.OldPosY], r11d
 
     ;increase column
     inc r11
@@ -191,8 +192,10 @@ move:
 
 
     ;update this pos
-    add [rbx + SnakeSegment.PosX], ecx
-    add [rbx + SnakeSegment.PosY], edx
+    add dword [rbx + SnakeSegment.PosX], ecx
+    add dword [rbx + SnakeSegment.PosY], edx
+    mov dword [rbx + SnakeSegment.OldPosX], r14d
+    mov dword [rbx + SnakeSegment.OldPosY], r15d
 
 
      ; currIdx
@@ -202,8 +205,7 @@ move:
     call wrap_row_if_required
     call wrap_column_if_required
 
-    ;handle food
-    call pick_food_if_possible
+
     ; inc by 1 beacuse head is handled
 
     inc r10
@@ -215,13 +217,16 @@ move:
 .propagate_loop:
 
     ; addressOfSnake + currIdx * sizeOf(snakeStruc)
-    lea r11, [rbx + r10 * 8]
+    imul r8, r10, SnakeSegment_size
+    lea r11, [rbx + r8]
 
     ; save old this val
     mov  ecx, [r11 + SnakeSegment.PosX]
     mov  edx, [r11 + SnakeSegment.PosY]
 
     ;update this val
+    mov dword [r11 + SnakeSegment.OldPosX], ecx
+    mov dword [r11 + SnakeSegment.OldPosY], edx
     mov dword [r11 + SnakeSegment.PosX], r14d
     mov dword [r11 + SnakeSegment.PosY], r15d
 
@@ -241,8 +246,13 @@ move:
     ;jg .done
 
 .done:
+ ;handle food
+    call pick_food_if_possible
+
     pop rbx
     pop rbp
+
+
 
     cmp rax, 1
     je .call_try_spawn_food_from_cpp
@@ -253,8 +263,10 @@ move:
 
 
 wrap_row_if_required:
-    lea r11, [rbx + r10 * 8]
-
+    push r15
+    imul r15, r10, SnakeSegment_size
+    lea r11, [rbx + r15]
+    pop r15
     cmp dword [r11 + SnakeSegment.PosX], BOARD_SIZE
     je .flip_row_toTopSide
 
@@ -273,8 +285,10 @@ wrap_row_if_required:
 
 
 wrap_column_if_required:
-    lea r11, [rbx + r10 * 8]
-
+    push r15
+    imul r15, r10, SnakeSegment_size
+    lea r11, [rbx + r15]
+    pop r15
     cmp dword [r11 + SnakeSegment.PosY], BOARD_SIZE
     je .flip_column_toLeftSide
 
@@ -311,9 +325,42 @@ pick_food_if_possible:
 
     mov byte [r12 + r8], BOARD_EMPTY_CELL_VALUE
     mov rax, $1
-
-    jmp .done
+    jmp .foodPicked
 .noFood:
+    jmp .done
+.foodPicked:
+    push rax
+
+
+    mov rax, [snakeSize]
+    ;to get last element
+    dec rax
+
+    ;last tail element
+    imul r13, rax, SnakeSegment_size
+    lea r14, [rbx + r13]
+
+    ;new tail element address
+    ;mov rax, [snakeSize]
+    ;imul rax, rax, SnakeSegment_size
+    lea r15, [rbx + r13 + SnakeSegment_size]
+
+    ;fill new tail element x data
+    mov dword eax, [r14 + SnakeSegment.OldPosX]
+    mov dword [r15 + SnakeSegment.PosX], eax
+    mov dword [r15 + SnakeSegment.OldPosX], eax
+
+    ;fill new tail element y data
+    mov dword eax, [r14 + SnakeSegment.OldPosY]
+    mov dword [r15 + SnakeSegment.PosY], eax
+    mov dword [r15 + SnakeSegment.OldPosY], eax
+
+    ;increase snake size
+    inc byte [snakeSize]
+
+
+    pop rax
+
     jmp .done
 .done:
     pop r8
@@ -325,7 +372,6 @@ pick_food_if_possible:
 spawn_food:
     push rbx
     push rbp
-
     mov al, 1 ; true by default
     lea rbx, [snake]
     mov rbp, [snakeSize]
@@ -340,7 +386,8 @@ spawn_food:
     jge .done
 
 .check_snake_positions:
-    lea r11, [rbx + r10 * 8]
+    imul r14, r10, 16
+    lea r11, [rbx + r14]
 
     ; compare x
     mov r12d, [r11 + SnakeSegment.PosX]
@@ -375,7 +422,6 @@ spawn_food:
 
     ;write food value
     mov byte [rdi + r15], BOARD_FOOD_CELL_VALUE
-
     pop rbp
     pop rbx
     ret;

@@ -23,6 +23,8 @@ extern "C" int snakeSize;
 struct SnakeElement {
     int PosX;
     int PosY;
+    int OldPosX;
+    int OldPosY;
 };
 
 extern "C" void init();
@@ -43,6 +45,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 {
     //from assembly
     init();
+
     //Register class
     WNDCLASSEX wc;
 
@@ -101,6 +104,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+
+
     return(int)msg.wParam;
 }
 LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
@@ -109,29 +115,37 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
     {
         case WM_KEYDOWN:
             switch (wParam) {
-                case VK_UP:
+                case VK_UP: {
                   move(-1, 0);
+                }
+
                 // InvalidateRect(hwnd, NULL, FALSE);
                 //   UpdateWindow(hwnd);
                 break;
-                case VK_DOWN:
+                case VK_DOWN: {
                     move(1, 0);
+                }
                 // InvalidateRect(hwnd, NULL, FALSE);
                 // UpdateWindow(hwnd);
+
                 break;
-                case VK_LEFT:
+                case VK_LEFT: {
                     move(0, -1);
+                }
+
                 // InvalidateRect(hwnd, NULL, FALSE);
                 // UpdateWindow(hwnd);
                 break;
-                case VK_RIGHT:
+                case VK_RIGHT: {
                       move(0, 1);
+                }
                  // InvalidateRect(hwnd, NULL, FALSE);
                  //  UpdateWindow(hwnd);
                 break;
                 default:
                 break;
             }
+
         break;
         case WM_PAINT: {
             PAINTSTRUCT ps;
@@ -194,7 +208,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
             //       "Spawn snake try",
             //       MB_OK | MB_ICONINFORMATION
             //   );
-            for (size_t i = 0; i < snakeSize; ++i) {
+            for (size_t i = 0; i < snakeSize; i++) {
                 SnakeElement& elem = snakeArray[i];
                 // std::ostringstream oss;
                 // oss << "Pozycja X: " << elem.PosX << "Pozycja Y:" << elem.PosY;
