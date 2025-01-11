@@ -370,9 +370,13 @@ pick_food_if_possible:
 ; windows 64 platform
 ; rcx = row, rdx = column
 spawn_food:
-    push rbx
-    push rbp
-    mov al, 1 ; true by default
+    push  rbx
+    push  rbp
+    push  r12
+    push  r13
+    push  r14
+    push  r15
+
     lea rbx, [snake]
     mov rbp, [snakeSize]
 
@@ -383,7 +387,7 @@ spawn_food:
     ;if currIdx >= snakeSize then go to done
     cmp r10, rbp
 
-    jge .done
+    jge .add_food
 
 .check_snake_positions:
     imul r14, r10, 16
@@ -401,18 +405,15 @@ spawn_food:
 
     ; both x and y failed
 .incorrect_pos:
-    mov rax, 0
-
-    pop rbp
-    pop rbx
-    ret;
+    mov rax, 0 ; mark as failed
+    jmp .done
 
 .skip_y_check:
     inc r10
     cmp r10, rbp
     jl .check_snake_positions ; loop while r10 < snakeSize
 
-.done:
+.add_food:
     lea rdi, board
 
     ; calculating offset
@@ -422,7 +423,14 @@ spawn_food:
 
     ;write food value
     mov byte [rdi + r15], BOARD_FOOD_CELL_VALUE
-    pop rbp
-    pop rbx
-    ret;
 
+    mov rax, 1 ; mark as success
+    jmp .done
+.done:
+    pop  rbx
+    pop  rbp
+    pop  r12
+    pop  r13
+    pop  r14
+    pop  r15
+    ret

@@ -33,8 +33,8 @@ extern "C" bool spawn_food(int row, int column);
 
 // I know that its probably bad practice, to have circular dependency there, although i don't have any other idea at this moment
 extern "C" void try_spawn_food() {
-    std::uniform_int_distribution<> genX(0, BOARD_SIZE);
-    std::uniform_int_distribution<> genY(0, BOARD_SIZE);
+    std::uniform_int_distribution<> genX(0, BOARD_SIZE - 1);
+    std::uniform_int_distribution<> genY(0, BOARD_SIZE - 1);
     while(!spawn_food(genX(gen), genY(gen))){}
 }
 
