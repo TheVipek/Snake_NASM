@@ -8,27 +8,41 @@ global snake
 global snakeSize
 global BOARD_SIZE
 global spawn_food
+global g_pick_food_callback
+
+extern try_spawn_food
+
+struc SnakeSegment
+    .PosX resd 1        ; 4 bytes
+    .PosY resd 1        ; 4 bytes
+    .OldPosX resd 1        ; 4 bytes
+    .OldPosY resd 1        ; 4 bytes
+endstruc
 
 section .data
 
 %define BOARD_SIZE 24
+%define BOARD_EMPTY_CELL_VALUE 0
+%define BOARD_FOOD_CELL_VALUE 1
 
 %define SNAKE_HEAD_STARTING_POSITION (BOARD_SIZE * BOARD_SIZE) / 2
 %define START_SNAKE_SIZE 3
+
 %define SNAKE_HEAD_VALUE 4
 %define SNAKE_TAIL_VALUE 2
+
 %define SNAKE_PosX_Offset 0
 %define SNAKE_PosY_Offset 4
 
 isDead db 0
 snakeSize db 0
+g_pick_food_callback dq 0
 
 section .bss
 ; 1 byte = X, 2 byte = Y
 moveDir resb 2
 board resb BOARD_SIZE * BOARD_SIZE
-snake resb 8 * BOARD_SIZE * BOARD_SIZE ; 8 == sizeof(PosX) + sizeof(PosY)
-
+snake resb SnakeSegment_size * BOARD_SIZE * BOARD_SIZE ;
 
 
 
@@ -42,12 +56,17 @@ init:
     mov byte [rsi + 1], dl
     call prepareBoard
     call prepareSnake
-    ret;
 
+;    mov rax, [g_pick_food_callback]
+;    test rax, rax
+;    je .done
+;    call rax
+    call try_spawn_food
 
+    jmp .done
 
-
-
+.done:
+    ret
 prepareBoard:
     lea rdi, board
     mov byte [rdi], 0
@@ -66,7 +85,7 @@ prepareBoard:
     add r15, r11
 
     ;write default value for board element
-    mov byte [rdi + r15], 0
+    mov byte [rdi + r15], BOARD_EMPTY_CELL_VALUE
 
     inc r11
 
@@ -104,6 +123,7 @@ prepareSnake:
 
     ; adress for target struc
     lea r13, [rbx + r12 * 8]
+
 
     mov dword [r13 + SNAKE_PosX_Offset], r10d
     mov dword [r13 + SNAKE_PosY_Offset], r11d
@@ -180,6 +200,8 @@ move:
     ;update this pos
     add [rbx + SNAKE_PosX_Offset], ecx
     add [rbx + SNAKE_PosY_Offset], edx
+
+
      ; currIdx
     mov r10, 0
 
@@ -187,7 +209,10 @@ move:
     call wrap_row_if_required
     call wrap_column_if_required
 
+    ;handle food
+    call pick_food_if_possible
     ; inc by 1 beacuse head is handled
+
     inc r10
 
     ;if currIdx >= snakeSize then go to done
@@ -225,7 +250,14 @@ move:
 .done:
     pop rbx
     pop rbp
+
+    cmp rax, 1
+    je .call_try_spawn_food_from_cpp
     ret
+.call_try_spawn_food_from_cpp:
+    call try_spawn_food
+    ret
+
 
 wrap_row_if_required:
     lea r11, [rbx + r10 * 8]
@@ -237,7 +269,6 @@ wrap_row_if_required:
     je .flip_X_toBotSide
 
     jmp .done
-
 .flip_row_toTopSide:
     mov dword [r11 + SNAKE_PosX_Offset], 0
     jmp .done
@@ -246,6 +277,8 @@ wrap_row_if_required:
     jmp .done
 .done:
     ret
+
+
 wrap_column_if_required:
     lea r11, [rbx + r10 * 8]
 
@@ -256,15 +289,43 @@ wrap_column_if_required:
     je .flip_column_toRightSide
 
     jmp .done
-
 .flip_column_toLeftSide:
       mov dword [r11 + SNAKE_PosY_Offset], 0
       jmp .done
 .flip_column_toRightSide:
     mov dword [r11 + SNAKE_PosY_Offset], BOARD_SIZE - 1
     jmp .done
-
 .done:
+    ret
+
+;rbx <-address of snake
+pick_food_if_possible:
+    mov rax, $0
+    push r8
+    push r9
+
+    lea r12, board
+    ;head row
+    mov r8d, [rbx + SNAKE_PosX_Offset]
+    ;head column
+    mov r9d, [rbx + SNAKE_PosY_Offset]
+
+    imul r8d, BOARD_SIZE
+    add r8d, r9d
+
+    cmp byte [r12 + r8], BOARD_FOOD_CELL_VALUE
+    jne .noFood
+
+    mov byte [r12 + r8], BOARD_EMPTY_CELL_VALUE
+    mov rax, $1
+
+    jmp .done
+.noFood:
+    jmp .done
+.done:
+    pop r8
+    pop r9
+
     ret
 ; windows 64 platform
 ; rcx = row, rdx = column
@@ -320,8 +381,9 @@ spawn_food:
     add r15, rcx
 
     ;write food value
-    mov byte [rdi + r15], 1
+    mov byte [rdi + r15], BOARD_FOOD_CELL_VALUE
 
     pop rbp
     pop rbx
     ret;
+

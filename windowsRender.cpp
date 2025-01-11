@@ -4,9 +4,18 @@
 #include <random>
 #include <sstream>
 #include <string>
+
+#define BOARD_SIZE 24
+#define CELL_SIZE 40
+#define GAP_SIZE 1
+#define BOARD_EMPTY_CELL_VALUE 0
+#define BOARD_FOOD_CELL_VALUE 1
+
 LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 MSG msg;
 std::random_device rd;
+std::mt19937 gen(rd());
+
 
 extern "C" unsigned char board[];
 extern "C" unsigned char snake[];
@@ -19,24 +28,21 @@ struct SnakeElement {
 extern "C" void init();
 extern "C" void move(int row, int column);
 extern "C" bool spawn_food(int row, int column);
-#define BOARD_SIZE 24
-#define CELL_SIZE 40
-#define GAP_SIZE 1
+
+// I know that its probably bad practice, to have circular dependency there, although i don't have any other idea at this moment
+extern "C" void try_spawn_food() {
+    std::uniform_int_distribution<> genX(0, BOARD_SIZE);
+    std::uniform_int_distribution<> genY(0, BOARD_SIZE);
+    while(!spawn_food(genX(gen), genY(gen))){}
+}
+
+
 
 
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow )
 {
-    std::mt19937 gen(rd());
     //from assembly
     init();
-
-    std::uniform_int_distribution<> genX(0, BOARD_SIZE);
-    std::uniform_int_distribution<> genY(0, BOARD_SIZE);
-    int x = genX(gen);
-    int y = genY(gen);
-    while(!spawn_food(x, y)){}
-
-
     //Register class
     WNDCLASSEX wc;
 
@@ -161,9 +167,9 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                     int value = board[i * BOARD_SIZE + j];
                     HBRUSH brush;
 
-                    if(value == 1)  // food
+                    if(value == BOARD_FOOD_CELL_VALUE)  // food
                         brush = CreateSolidBrush(RGB(255, 46, 46));
-                    else // Empty cell
+                    else if (value == BOARD_EMPTY_CELL_VALUE) // Empty cell
                         brush = CreateSolidBrush(RGB(255, 255, 255));
 
 
