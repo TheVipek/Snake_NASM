@@ -15,11 +15,8 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 MSG msg;
 std::random_device rd;
 std::mt19937 gen(rd());
-
-
-extern "C" unsigned char board[];
-extern "C" unsigned char snake[];
-extern "C" int snakeSize;
+UINT_PTR moveTimerID;
+UINT_PTR frameTimerID;
 struct SnakeElement {
     int PosX;
     int PosY;
@@ -27,8 +24,20 @@ struct SnakeElement {
     int OldPosY;
 };
 
+struct MoveDirection {
+    int8_t X;
+    int8_t Y;
+};
+
+extern "C" unsigned char board[];
+extern "C" unsigned char snake[];
+extern "C" int snakeSize;
+extern "C" int snakeSqrPerSecond;
+
+
 extern "C" void init();
-extern "C" void move(int row, int column);
+extern "C" void move();
+extern "C" void change_direction(int row, int column);
 extern "C" bool spawn_food(int row, int column);
 
 // I know that its probably bad practice, to have circular dependency there, although i don't have any other idea at this moment
@@ -98,8 +107,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     ShowWindow( hwnd, nCmdShow );
     UpdateWindow( hwnd );
 
-    SetTimer(hwnd, 999, 33, NULL);
-
+    frameTimerID = SetTimer(hwnd, 999, 33, NULL);
+    moveTimerID = SetTimer(hwnd, 1000, (int)(1000 / (float)snakeSqrPerSecond), NULL);
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -116,28 +125,28 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
         case WM_KEYDOWN:
             switch (wParam) {
                 case VK_UP: {
-                  move(-1, 0);
+                  change_direction(-1, 0);
                 }
 
                 // InvalidateRect(hwnd, NULL, FALSE);
                 //   UpdateWindow(hwnd);
                 break;
                 case VK_DOWN: {
-                    move(1, 0);
+                    change_direction(1, 0);
                 }
                 // InvalidateRect(hwnd, NULL, FALSE);
                 // UpdateWindow(hwnd);
 
                 break;
                 case VK_LEFT: {
-                    move(0, -1);
+                    change_direction(0, -1);
                 }
 
                 // InvalidateRect(hwnd, NULL, FALSE);
                 // UpdateWindow(hwnd);
                 break;
                 case VK_RIGHT: {
-                      move(0, 1);
+                    change_direction(0, 1);
                 }
                  // InvalidateRect(hwnd, NULL, FALSE);
                  //  UpdateWindow(hwnd);
@@ -199,26 +208,8 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
             }
 
             SnakeElement* snakeArray = reinterpret_cast<SnakeElement*>(snake);
-            // std::ostringstream oss;
-            // oss << "Wielkosc snakeArray: " << sizeof(snakeArray) << "Ilosc; " << snakeSize;
-            // std::string wynik = oss.str();
-            // MessageBox(
-            //       NULL,
-            //       wynik.c_str(),
-            //       "Spawn snake try",
-            //       MB_OK | MB_ICONINFORMATION
-            //   );
             for (size_t i = 0; i < snakeSize; i++) {
                 SnakeElement& elem = snakeArray[i];
-                // std::ostringstream oss;
-                // oss << "Pozycja X: " << elem.PosX << "Pozycja Y:" << elem.PosY;
-                // std::string wynik = oss.str();
-              //   MessageBox(
-              //     NULL,
-              //     wynik.c_str(),
-              //     "Spawn snake try",
-              //     MB_OK | MB_ICONINFORMATION
-              // );
                 HBRUSH brush;
                 if (i == 0) {
                     brush = CreateSolidBrush(RGB(0, 255, 0));
@@ -256,7 +247,12 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
             return 1;
         case WM_TIMER:
         {
-            InvalidateRect(hwnd, NULL, FALSE);
+            if (frameTimerID == wParam) {
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+            else if (moveTimerID == wParam) {
+                move();
+            }
             return 0;
         }
         case WM_CLOSE:

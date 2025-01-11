@@ -8,7 +8,9 @@ global snake
 global snakeSize
 global BOARD_SIZE
 global spawn_food
-
+global snakeSqrPerSecond
+global moveDir
+global change_direction
 extern try_spawn_food
 
 struc SnakeSegment ; 16bytes
@@ -17,8 +19,6 @@ struc SnakeSegment ; 16bytes
     .OldPosX resd 1
     .OldPosY resd 1
 endstruc
-
-section .data
 
 %define BOARD_SIZE 24
 %define BOARD_EMPTY_CELL_VALUE 0
@@ -30,15 +30,21 @@ section .data
 %define SNAKE_HEAD_VALUE 4
 %define SNAKE_TAIL_VALUE 2
 
+
+section .data
+
+
+
+snakeSqrPerSecond dd 15
 isDead db 0
 snakeSize db 0
-g_pick_food_callback dq 0
 
 section .bss
 ; 1 byte = X, 2 byte = Y
 moveDir resb 2
 board resb BOARD_SIZE * BOARD_SIZE
 snake resb SnakeSegment_size * BOARD_SIZE * BOARD_SIZE ;
+
 
 
 
@@ -139,23 +145,17 @@ prepareSnake:
     ret
 
 
-; windows 64 platform
 ; [Parameter1]rcx = dir Y, [Parameter2]rdx = dir X
-move:
-    push rbx
-    push rbp
-
-    lea rbx, [snake]
-    mov rbp, [snakeSize]
+change_direction:
     lea rsi, [moveDir]
+
     cmp byte [rsi], 0
     jne .validateMoveX
 
     cmp byte [rsi + 1], 0
     jne .validateMoveY
 
-    jmp .processMove
-
+    jmp .applyInput
 .validateMoveX:
 
 ;    ;xDir
@@ -167,7 +167,7 @@ move:
     cmp [rsi], r8b
     je .done
 
-    jmp .processMove
+    jmp .applyInput
 
 .validateMoveY:
     ;yDir
@@ -179,21 +179,37 @@ move:
     cmp [rsi + 1], r9b
     je .done
 
+    jmp .applyInput
+.applyInput:
+    mov byte [rsi], dl
+    mov byte [rsi + 1], cl
+
+    jmp .done
+.done:
+    ret
+
+move:
+    push rbx
+    push rbp
+
+    lea rbx, [snake]
+    mov rbp, [snakeSize]
+    lea rsi, [moveDir]
+
     jmp .processMove
 
 .processMove:
-
-    mov byte [rsi], dl
-    mov byte [rsi + 1], cl
     ;save old pos
     mov r14d, [rbx + SnakeSegment.PosX]
     mov r15d, [rbx + SnakeSegment.PosY]
 
+    movsx r12d, byte [rsi]        ; Y
+    movsx r13d, byte [rsi + 1]    ; X
 
 
     ;update this pos
-    add dword [rbx + SnakeSegment.PosX], ecx
-    add dword [rbx + SnakeSegment.PosY], edx
+    add dword [rbx + SnakeSegment.PosX], r13d
+    add dword [rbx + SnakeSegment.PosY], r12d
     mov dword [rbx + SnakeSegment.OldPosX], r14d
     mov dword [rbx + SnakeSegment.OldPosY], r15d
 
@@ -221,18 +237,18 @@ move:
     lea r11, [rbx + r8]
 
     ; save old this val
-    mov  ecx, [r11 + SnakeSegment.PosX]
-    mov  edx, [r11 + SnakeSegment.PosY]
+    mov  r13d, [r11 + SnakeSegment.PosX]
+    mov  r12d, [r11 + SnakeSegment.PosY]
 
     ;update this val
-    mov dword [r11 + SnakeSegment.OldPosX], ecx
-    mov dword [r11 + SnakeSegment.OldPosY], edx
+    mov dword [r11 + SnakeSegment.OldPosX], r13d
+    mov dword [r11 + SnakeSegment.OldPosY], r12d
     mov dword [r11 + SnakeSegment.PosX], r14d
     mov dword [r11 + SnakeSegment.PosY], r15d
 
     ;update old this val
-    mov r14d, ecx
-    mov r15d, edx
+    mov r14d, r13d
+    mov r15d, r12d
 
     inc r10
 
