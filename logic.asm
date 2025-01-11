@@ -140,10 +140,7 @@ move:
     cmp byte [rsi + 1], 0
     jne .validateMoveY
 
-    ;jmp .done
-
     jmp .processMove
-
 
 .validateMoveX:
 
@@ -183,13 +180,15 @@ move:
     ;update this pos
     add [rbx + SNAKE_PosX_Offset], ecx
     add [rbx + SNAKE_PosY_Offset], edx
-
-
-    ; currIdx
+     ; currIdx
     mov r10, 0
+
+    ;handle wrapping for head
+    call wrap_row_if_required
+    call wrap_column_if_required
+
     ; inc by 1 beacuse head is handled
     inc r10
-
 
     ;if currIdx >= snakeSize then go to done
     cmp r10, rbp
@@ -211,7 +210,12 @@ move:
     ;update old this val
     mov r14d, ecx
     mov r15d, edx
+
     inc r10
+
+    ;handle wrapping for tail element
+    call wrap_row_if_required
+    call wrap_column_if_required
 
     cmp r10, rbp
     jl .propagate_loop
@@ -223,6 +227,45 @@ move:
     pop rbp
     ret
 
+wrap_row_if_required:
+    lea r11, [rbx + r10 * 8]
+
+    cmp dword [r11 + SNAKE_PosX_Offset], BOARD_SIZE
+    je .flip_row_toTopSide
+
+    cmp dword [r11 + SNAKE_PosX_Offset], -1
+    je .flip_X_toBotSide
+
+    jmp .done
+
+.flip_row_toTopSide:
+    mov dword [r11 + SNAKE_PosX_Offset], 0
+    jmp .done
+.flip_X_toBotSide:
+    mov dword [r11 + SNAKE_PosX_Offset], BOARD_SIZE - 1
+    jmp .done
+.done:
+    ret
+wrap_column_if_required:
+    lea r11, [rbx + r10 * 8]
+
+    cmp dword [r11 + SNAKE_PosY_Offset], BOARD_SIZE
+    je .flip_column_toLeftSide
+
+    cmp dword [r11 + SNAKE_PosY_Offset], -1
+    je .flip_column_toRightSide
+
+    jmp .done
+
+.flip_column_toLeftSide:
+      mov dword [r11 + SNAKE_PosY_Offset], 0
+      jmp .done
+.flip_column_toRightSide:
+    mov dword [r11 + SNAKE_PosY_Offset], BOARD_SIZE - 1
+    jmp .done
+
+.done:
+    ret
 ; windows 64 platform
 ; rcx = row, rdx = column
 spawn_food:
