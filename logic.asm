@@ -31,9 +31,6 @@ section .data
 %define SNAKE_HEAD_VALUE 4
 %define SNAKE_TAIL_VALUE 2
 
-%define SNAKE_PosX_Offset 0
-%define SNAKE_PosY_Offset 4
-
 isDead db 0
 snakeSize db 0
 g_pick_food_callback dq 0
@@ -57,10 +54,6 @@ init:
     call prepareBoard
     call prepareSnake
 
-;    mov rax, [g_pick_food_callback]
-;    test rax, rax
-;    je .done
-;    call rax
     call try_spawn_food
 
     jmp .done
@@ -125,8 +118,8 @@ prepareSnake:
     lea r13, [rbx + r12 * 8]
 
 
-    mov dword [r13 + SNAKE_PosX_Offset], r10d
-    mov dword [r13 + SNAKE_PosY_Offset], r11d
+    mov dword [r13 + SnakeSegment.PosX], r10d
+    mov dword [r13 + SnakeSegment.PosY], r11d
 
     ;increase column
     inc r11
@@ -192,14 +185,14 @@ move:
     mov byte [rsi], dl
     mov byte [rsi + 1], cl
     ;save old pos
-    mov r14d, [rbx + SNAKE_PosX_Offset]
-    mov r15d, [rbx + SNAKE_PosY_Offset]
+    mov r14d, [rbx + SnakeSegment.PosX]
+    mov r15d, [rbx + SnakeSegment.PosY]
 
 
 
     ;update this pos
-    add [rbx + SNAKE_PosX_Offset], ecx
-    add [rbx + SNAKE_PosY_Offset], edx
+    add [rbx + SnakeSegment.PosX], ecx
+    add [rbx + SnakeSegment.PosY], edx
 
 
      ; currIdx
@@ -225,12 +218,12 @@ move:
     lea r11, [rbx + r10 * 8]
 
     ; save old this val
-    mov  ecx, [r11 + SNAKE_PosX_Offset]
-    mov  edx, [r11 + SNAKE_PosY_Offset]
+    mov  ecx, [r11 + SnakeSegment.PosX]
+    mov  edx, [r11 + SnakeSegment.PosY]
 
     ;update this val
-    mov dword [r11 + SNAKE_PosX_Offset], r14d
-    mov dword [r11 + SNAKE_PosY_Offset], r15d
+    mov dword [r11 + SnakeSegment.PosX], r14d
+    mov dword [r11 + SnakeSegment.PosY], r15d
 
     ;update old this val
     mov r14d, ecx
@@ -262,18 +255,18 @@ move:
 wrap_row_if_required:
     lea r11, [rbx + r10 * 8]
 
-    cmp dword [r11 + SNAKE_PosX_Offset], BOARD_SIZE
+    cmp dword [r11 + SnakeSegment.PosX], BOARD_SIZE
     je .flip_row_toTopSide
 
-    cmp dword [r11 + SNAKE_PosX_Offset], -1
+    cmp dword [r11 + SnakeSegment.PosX], -1
     je .flip_X_toBotSide
 
     jmp .done
 .flip_row_toTopSide:
-    mov dword [r11 + SNAKE_PosX_Offset], 0
+    mov dword [r11 + SnakeSegment.PosX], 0
     jmp .done
 .flip_X_toBotSide:
-    mov dword [r11 + SNAKE_PosX_Offset], BOARD_SIZE - 1
+    mov dword [r11 + SnakeSegment.PosX], BOARD_SIZE - 1
     jmp .done
 .done:
     ret
@@ -282,18 +275,18 @@ wrap_row_if_required:
 wrap_column_if_required:
     lea r11, [rbx + r10 * 8]
 
-    cmp dword [r11 + SNAKE_PosY_Offset], BOARD_SIZE
+    cmp dword [r11 + SnakeSegment.PosY], BOARD_SIZE
     je .flip_column_toLeftSide
 
-    cmp dword [r11 + SNAKE_PosY_Offset], -1
+    cmp dword [r11 + SnakeSegment.PosY], -1
     je .flip_column_toRightSide
 
     jmp .done
 .flip_column_toLeftSide:
-      mov dword [r11 + SNAKE_PosY_Offset], 0
+      mov dword [r11 + SnakeSegment.PosY], 0
       jmp .done
 .flip_column_toRightSide:
-    mov dword [r11 + SNAKE_PosY_Offset], BOARD_SIZE - 1
+    mov dword [r11 + SnakeSegment.PosY], BOARD_SIZE - 1
     jmp .done
 .done:
     ret
@@ -306,9 +299,9 @@ pick_food_if_possible:
 
     lea r12, board
     ;head row
-    mov r8d, [rbx + SNAKE_PosX_Offset]
+    mov r8d, [rbx + SnakeSegment.PosX]
     ;head column
-    mov r9d, [rbx + SNAKE_PosY_Offset]
+    mov r9d, [rbx + SnakeSegment.PosY]
 
     imul r8d, BOARD_SIZE
     add r8d, r9d
@@ -350,12 +343,12 @@ spawn_food:
     lea r11, [rbx + r10 * 8]
 
     ; compare x
-    mov r12d, [r11 + SNAKE_PosX_Offset]
+    mov r12d, [r11 + SnakeSegment.PosX]
     cmp r12d, ecx
     jne .skip_y_check
 
     ; if x not fail, compare y
-    mov r13d, [r11 + SNAKE_PosY_Offset]
+    mov r13d, [r11 + SnakeSegment.PosY]
     cmp r13d, edx
     jne .skip_y_check
 
