@@ -1,22 +1,29 @@
-//g++ -o windowsRender.exe windowsRender.cpp logic.obj -mwindows
+//windres resources.rc -O coff -o resources.o
 //nasm -fwin64 -o logic.obj logic.asm
+//g++ -o windowsRender.exe windowsRender.cpp logic.obj resources.o -mwindows -lwinmm
+
 #include <windows.h>
 #include <random>
 #include <sstream>
+#include <mmsystem.h>
+#include "resource.h"
 
-#define BOARD_SIZE 24
+#define BOARD_SIZE 12
 #define CELL_SIZE 40
 #define GAP_SIZE 1
 #define SNAKE_HEAD_MARGIN 4
 #define BOARD_EMPTY_CELL_VALUE 0
 #define BOARD_FOOD_CELL_VALUE 1
 #define TARGET_FRAMES 60
+
 LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 MSG msg;
 std::random_device rd;
 std::mt19937 gen(rd());
 UINT_PTR moveTimerID;
 UINT_PTR frameTimerID;
+
+
 
 struct SnakeElement {
     int PosX;
@@ -25,21 +32,30 @@ struct SnakeElement {
     int OldPosY;
 };
 
+int frameCount = 0;
+float lastMoveTime = 0;
+float snakeMovePerFrame;
 
+//asm -> cpp
 extern "C" unsigned char board[];
 extern "C" unsigned char snake[];
 extern "C" int snakeSize;
 extern "C" int snakeSqrPerSecond;
 extern "C" bool isDead;
-
-int frameCount = 0;
-float lastMoveTime = 0;
-float snakeMovePerFrame;
-
 extern "C" void init();
 extern "C" void move();
 extern "C" void change_direction(int row, int column);
 extern "C" bool spawn_food(int row, int column);
+
+
+//cpp -> asm
+extern "C" void onEat() {
+    PlaySound(MAKEINTRESOURCE(IDR_WAVE1), GetModuleHandle(NULL), SND_RESOURCE | SND_ASYNC);
+}
+
+extern "C" void onDeath() {
+    PlaySound(MAKEINTRESOURCE(IDR_WAVE2), NULL, SND_RESOURCE | SND_ASYNC);
+}
 
 // I know that its probably bad practice, to have circular dependency there, although i don't have any other idea at this moment
 extern "C" void try_spawn_food() {
@@ -50,12 +66,13 @@ extern "C" void try_spawn_food() {
 
 
 
-
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow )
 {
     //from assembly
     init();
+
     snakeMovePerFrame = snakeSqrPerSecond / TARGET_FRAMES;
+
     //Register class
     WNDCLASSEX wc;
 

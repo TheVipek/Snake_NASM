@@ -1,0 +1,5 @@
+#include <windows.h>
+#include "resource.h"
+IDR_WAVE1 WAVE "sounds\\eat.wav"
+IDR_WAVE2 WAVE "sounds\\hitHurt.wav"
+IDR_WAVE3 WAVE "sounds\\move.wav"

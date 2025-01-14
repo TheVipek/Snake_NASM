@@ -14,6 +14,10 @@ global change_direction
 global isDead
 extern try_spawn_food
 
+extern onEat
+extern onDeath
+
+
 struc SnakeSegment ; 16bytes
     .PosX resd 1
     .PosY resd 1
@@ -21,7 +25,7 @@ struc SnakeSegment ; 16bytes
     .OldPosY resd 1
 endstruc
 
-%define BOARD_SIZE 24
+%define BOARD_SIZE 12
 %define BOARD_EMPTY_CELL_VALUE 0
 %define BOARD_FOOD_CELL_VALUE 1
 
@@ -36,7 +40,7 @@ section .data
 
 
 
-snakeSqrPerSecond dd 12
+snakeSqrPerSecond dd 9
 proceededAtLeastOnceInMoveDir db 0
 isDead db 0
 snakeSize db 0
@@ -189,6 +193,8 @@ change_direction:
     mov byte [rsi], dl
     mov byte [rsi + 1], cl
     mov byte [proceededAtLeastOnceInMoveDir], 0
+
+
     jmp .done
 .done:
     ret
@@ -308,6 +314,11 @@ move:
 
 .mark_as_dead:
     mov byte [isDead], 1
+
+    sub rsp, 8
+    call onDeath ; method from cpp side
+    add rsp, 8
+
     jmp .exit_early
 
 .done:
@@ -427,6 +438,11 @@ pick_food_if_possible:
 
     ;increase snake size
     inc byte [snakeSize]
+
+
+    sub rsp, 8
+    call onEat ; method from cpp side
+    add rsp, 8
 
 
     pop rax
