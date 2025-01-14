@@ -73,6 +73,10 @@ init:
 
 .done:
     ret
+
+
+
+
 prepareBoard:
     lea rdi, board
     mov byte [rdi], 0

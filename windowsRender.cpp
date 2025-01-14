@@ -1,8 +1,9 @@
 //windres resources.rc -O coff -o resources.o
 //nasm -fwin64 -o logic.obj logic.asm
-//g++ -o windowsRender.exe windowsRender.cpp logic.obj resources.o -mwindows -lwinmm
+//g++ -o windowsRender.exe windowsRender.cpp logic.obj resources.o -mwindows -lwinmm -lmsimg32
 
 #include <windows.h>
+#include <wingdi.h>
 #include <random>
 #include <sstream>
 #include <mmsystem.h>
@@ -40,6 +41,7 @@ extern "C" int snakeSize;
 extern "C" int snakeSqrPerSecond;
 extern "C" bool isDead;
 extern "C" void init();
+extern "C" void restart();
 extern "C" void move();
 extern "C" void change_direction(int row, int column);
 extern "C" bool spawn_food(int row, int column);
@@ -60,7 +62,6 @@ extern "C" void try_spawn_food() {
     std::uniform_int_distribution<> genY(0, BOARD_SIZE - 1);
     while(!spawn_food(genX(gen), genY(gen))){}
 }
-
 
 
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow )
@@ -182,10 +183,11 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
             int offsetY = (clientHeight - gridHeight) / 2;
 
             //Background
-            HBRUSH backgroundBrush = CreateSolidBrush(RGB(232, 232, 232));
+            HBRUSH backgroundBrush = CreateSolidBrush(RGB(50, 50, 50));
             RECT backgroundRect = { 0, 0, ps.rcPaint.right, ps.rcPaint.bottom };
             FillRect(memDC, &backgroundRect, backgroundBrush);
             DeleteObject(backgroundBrush);
+
             //Grid
             for (int i = 0; i < BOARD_SIZE; i++) {
                 for (int j = 0; j < BOARD_SIZE; j++) {
@@ -193,9 +195,9 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                     HBRUSH brush;
 
                     if(value == BOARD_FOOD_CELL_VALUE)  // food
-                        brush = CreateSolidBrush(RGB(255, 46, 46));
+                        brush = CreateSolidBrush(RGB(255, 69, 0));
                     else if (value == BOARD_EMPTY_CELL_VALUE) // Empty cell
-                        brush = CreateSolidBrush(RGB(255, 255, 255));
+                        brush = CreateSolidBrush(RGB(200, 200, 200));
 
 
                     RECT cell = {
@@ -209,16 +211,17 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                 }
             }
 
+
+
+            //Snake
             SnakeElement* snakeArray = reinterpret_cast<SnakeElement*>(snake);
-
-
             for (int i = snakeSize - 1; i >= 0; i--)
             {
                 SnakeElement& elem = snakeArray[i];
                 HBRUSH brush;
                 RECT cell;
                 if (i == 0) {
-                    brush = CreateSolidBrush(RGB(0, 255, 0));
+                    brush = CreateSolidBrush(RGB(0, 180, 0));
                     cell = {
                         offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) + SNAKE_HEAD_MARGIN ,
                         offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) + SNAKE_HEAD_MARGIN ,
@@ -227,7 +230,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                     };
                 }
                 else {
-                    brush = CreateSolidBrush(RGB(0, 200, 0));
+                    brush = CreateSolidBrush(RGB(39, 139, 34));
                     cell = {
                         offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) ,
                         offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) ,
@@ -239,15 +242,80 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                 DeleteObject(brush);
             }
 
+
+
+            if (isDead) {
+                BLENDFUNCTION blend = {};
+                blend.BlendOp = AC_SRC_OVER;
+                blend.BlendFlags = 0;
+                blend.SourceConstantAlpha = 128;
+                blend.AlphaFormat = 0;
+
+                // need to create it to apply transparent background
+                HDC tempDC = CreateCompatibleDC(memDC);
+                HBITMAP tempBitmap = CreateCompatibleBitmap(memDC, width, height);
+                HBITMAP oldTempBitmap = (HBITMAP)SelectObject(tempDC, tempBitmap);
+
+                //Background
+                HBRUSH backgroundBrush = CreateSolidBrush(RGB(40, 40, 40));
+                RECT backgroundRect = { 0, 0, ps.rcPaint.right, ps.rcPaint.bottom };
+                SetBkMode(memDC, TRANSPARENT);
+                FillRect(tempDC, &backgroundRect, backgroundBrush);
+
+                AlphaBlend(
+                    memDC
+                    , ps.rcPaint.left
+                    ,ps.rcPaint.top
+                    , width
+                    , height
+                    , tempDC
+                    , ps.rcPaint.left
+                    , ps.rcPaint.top
+                    , width
+                    , height
+                    , blend);
+
+
+                SelectObject(tempDC, oldTempBitmap);
+                DeleteObject(tempBitmap);
+                DeleteDC(tempDC);
+                DeleteObject(backgroundBrush);
+
+
+                //Text
+                RECT textRect;
+                textRect.left = clientWidth * 0.1;
+                textRect.top = clientHeight * 0.1;
+                textRect.right = clientWidth * 0.9;
+                textRect.bottom = clientHeight * 0.9;
+
+                int fontSize = clientHeight * 0.1;
+                HFONT hFont = CreateFont(
+                    fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, ANSI_CHARSET,
+                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                    DEFAULT_PITCH | FF_SWISS, TEXT("Arial"));
+
+                HFONT oldFont = (HFONT)SelectObject(memDC, hFont);
+                SetTextColor(memDC, RGB(255, 255, 255));
+                SetBkMode(memDC, TRANSPARENT);
+
+                LPCSTR text = "Press R to restart";
+                DrawText(memDC, text, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+                SelectObject(hdc, oldFont);
+                DeleteObject(hFont);
+
+            }
+
             BitBlt(hdc,
-                ps.rcPaint.left,
-                ps.rcPaint.top,
-                width,
-                height,
-                memDC,
-                ps.rcPaint.left,
-                ps.rcPaint.top,
-                SRCCOPY);
+               ps.rcPaint.left,
+               ps.rcPaint.top,
+               width,
+               height,
+               memDC,
+               ps.rcPaint.left,
+               ps.rcPaint.top,
+               SRCCOPY);
 
             SelectObject(memDC, oldBitmap);
             DeleteObject(memBitmap);
