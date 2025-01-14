@@ -65,9 +65,11 @@ init:
     call prepareBoard
     call prepareSnake
 
+    sub rsp, 8
     call try_spawn_food
-
+    add rsp, 8
     jmp .done
+
 
 .done:
     ret
@@ -207,7 +209,7 @@ move:
     je .exit_early
 
     lea rbx, [snake]
-    mov rbp, [snakeSize]
+    movzx rbp, byte [snakeSize]
     lea rsi, [moveDir]
 
     jmp .processMove
@@ -339,7 +341,9 @@ move:
     pop rbp
     ret
 .call_try_spawn_food_from_cpp:
+    sub rsp, 8
     call try_spawn_food
+    add rsp, 8
     ret
 
 
@@ -413,7 +417,7 @@ pick_food_if_possible:
     push rax
 
 
-    mov rax, [snakeSize]
+    movzx rax, byte [snakeSize]
     ;to get last element
     dec rax
 
@@ -464,7 +468,7 @@ spawn_food:
     push  r15
 
     lea rbx, [snake]
-    mov rbp, [snakeSize]
+    movzx rbp, byte [snakeSize]
 
 
     ;currIdx
@@ -476,7 +480,7 @@ spawn_food:
     jge .add_food
 
 .check_snake_positions:
-    imul r14, r10, 16
+    imul r14, r10, SnakeSegment_size
     lea r11, [rbx + r14]
 
     ; compare x
@@ -506,6 +510,9 @@ spawn_food:
     mov r15, rdx
     imul r15, BOARD_SIZE
     add r15, rcx
+
+    cmp r15, BOARD_SIZE * BOARD_SIZE
+    jge .incorrect_pos
 
     ;write food value
     mov byte [rdi + r15], BOARD_FOOD_CELL_VALUE
