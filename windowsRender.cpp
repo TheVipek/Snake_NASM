@@ -153,6 +153,12 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                 case VK_RIGHT: {
                     change_direction(0, 1);
                 }
+                case 0x52: { // 'R'
+                    if (isDead) {
+                        restart();
+                        init();
+                    }
+                }
                 break;
                 default:
                 break;

@@ -2,6 +2,7 @@ bits 64
 default rel
 
 global init
+global restart
 global board
 global move
 global snake
@@ -74,7 +75,24 @@ init:
 .done:
     ret
 
+restart:
+    mov byte [proceededAtLeastOnceInMoveDir], 0
 
+    mov byte [isDead], 0
+
+    mov byte [snakeSize], 0
+
+    lea rdi, [board]
+    mov rcx, BOARD_SIZE * BOARD_SIZE
+    xor rax, rax                     ; Zero value
+    rep stosb                        ; Fill with 0
+
+    lea rdi, [snake]
+    mov rcx, SnakeSegment_size * BOARD_SIZE * BOARD_SIZE
+    xor rax, rax                                         ; Zero value
+    rep stosb                                            ; Fill with 0
+
+    ret
 
 
 prepareBoard:
