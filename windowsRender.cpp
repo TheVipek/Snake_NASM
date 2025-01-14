@@ -32,9 +32,6 @@ struct SnakeElement {
     int OldPosY;
 };
 
-int frameCount = 0;
-float lastMoveTime = 0;
-float snakeMovePerFrame;
 
 //asm -> cpp
 extern "C" unsigned char board[];
@@ -70,8 +67,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 {
     //from assembly
     init();
-
-    snakeMovePerFrame = snakeSqrPerSecond / TARGET_FRAMES;
 
     //Register class
     WNDCLASSEX wc;
@@ -145,29 +140,18 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
                 case VK_UP: {
                   change_direction(-1, 0);
                 }
-
-                // InvalidateRect(hwnd, NULL, FALSE);
-                //   UpdateWindow(hwnd);
                 break;
                 case VK_DOWN: {
                     change_direction(1, 0);
                 }
-                // InvalidateRect(hwnd, NULL, FALSE);
-                // UpdateWindow(hwnd);
-
                 break;
                 case VK_LEFT: {
                     change_direction(0, -1);
                 }
-
-                // InvalidateRect(hwnd, NULL, FALSE);
-                // UpdateWindow(hwnd);
                 break;
                 case VK_RIGHT: {
                     change_direction(0, 1);
                 }
-                 // InvalidateRect(hwnd, NULL, FALSE);
-                 //  UpdateWindow(hwnd);
                 break;
                 default:
                 break;
@@ -277,14 +261,12 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
         {
             if (frameTimerID == wParam) {
                 InvalidateRect(hwnd, NULL, FALSE);
-                frameCount++;
             }
             else if (moveTimerID == wParam) {
 
                 //asm won't update its position when it's dead, although i think that there's no need to call it if it will exit early every time
                 if (!isDead) {
                     move();
-                    lastMoveTime = frameCount;
                 }
             }
             return 0;
