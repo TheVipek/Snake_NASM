@@ -3,20 +3,21 @@
 #include <windows.h>
 #include <random>
 #include <sstream>
-#include <string>
 
 #define BOARD_SIZE 24
 #define CELL_SIZE 40
 #define GAP_SIZE 1
+#define SNAKE_HEAD_MARGIN 4
 #define BOARD_EMPTY_CELL_VALUE 0
 #define BOARD_FOOD_CELL_VALUE 1
-
+#define TARGET_FRAMES 60
 LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 MSG msg;
 std::random_device rd;
 std::mt19937 gen(rd());
 UINT_PTR moveTimerID;
 UINT_PTR frameTimerID;
+
 struct SnakeElement {
     int PosX;
     int PosY;
@@ -24,16 +25,16 @@ struct SnakeElement {
     int OldPosY;
 };
 
-struct MoveDirection {
-    int8_t X;
-    int8_t Y;
-};
 
 extern "C" unsigned char board[];
 extern "C" unsigned char snake[];
 extern "C" int snakeSize;
 extern "C" int snakeSqrPerSecond;
+extern "C" bool isDead;
 
+int frameCount = 0;
+float lastMoveTime = 0;
+float snakeMovePerFrame;
 
 extern "C" void init();
 extern "C" void move();
@@ -54,7 +55,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 {
     //from assembly
     init();
-
+    snakeMovePerFrame = snakeSqrPerSecond / TARGET_FRAMES;
     //Register class
     WNDCLASSEX wc;
 
@@ -107,8 +108,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     ShowWindow( hwnd, nCmdShow );
     UpdateWindow( hwnd );
 
-    frameTimerID = SetTimer(hwnd, 999, 33, NULL);
-    moveTimerID = SetTimer(hwnd, 1000, (int)(1000 / (float)snakeSqrPerSecond), NULL);
+    frameTimerID = SetTimer(hwnd, 999, TARGET_FRAMES / 1000, NULL);
+    moveTimerID = SetTimer(hwnd, 1000, (1000 / snakeSqrPerSecond), NULL);
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -208,25 +209,35 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
             }
 
             SnakeElement* snakeArray = reinterpret_cast<SnakeElement*>(snake);
-            for (size_t i = 0; i < snakeSize; i++) {
+
+
+            for (int i = snakeSize - 1; i >= 0; i--)
+            {
                 SnakeElement& elem = snakeArray[i];
                 HBRUSH brush;
+                RECT cell;
                 if (i == 0) {
                     brush = CreateSolidBrush(RGB(0, 255, 0));
+                    cell = {
+                        offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) + SNAKE_HEAD_MARGIN ,
+                        offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) + SNAKE_HEAD_MARGIN ,
+                        offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) + CELL_SIZE - SNAKE_HEAD_MARGIN,
+                        offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) + CELL_SIZE - SNAKE_HEAD_MARGIN
+                    };
                 }
                 else {
                     brush = CreateSolidBrush(RGB(0, 200, 0));
+                    cell = {
+                        offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) ,
+                        offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) ,
+                        offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) + CELL_SIZE,
+                        offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) + CELL_SIZE
+                    };
                 }
-
-                RECT cell = {
-                    offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) ,
-                    offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) ,
-                    offsetX + elem.PosY * (CELL_SIZE + GAP_SIZE) + CELL_SIZE,
-                    offsetY + elem.PosX * (CELL_SIZE + GAP_SIZE) + CELL_SIZE
-                };
                 FillRect(memDC, &cell, brush);
                 DeleteObject(brush);
             }
+
             BitBlt(hdc,
                 ps.rcPaint.left,
                 ps.rcPaint.top,
@@ -249,9 +260,15 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
         {
             if (frameTimerID == wParam) {
                 InvalidateRect(hwnd, NULL, FALSE);
+                frameCount++;
             }
             else if (moveTimerID == wParam) {
-                move();
+
+                //asm won't update its position when it's dead, although i think that there's no need to call it if it will exit early every time
+                if (!isDead) {
+                    move();
+                    lastMoveTime = frameCount;
+                }
             }
             return 0;
         }

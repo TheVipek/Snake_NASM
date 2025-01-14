@@ -11,6 +11,7 @@ global spawn_food
 global snakeSqrPerSecond
 global moveDir
 global change_direction
+global isDead
 extern try_spawn_food
 
 struc SnakeSegment ; 16bytes
@@ -35,7 +36,8 @@ section .data
 
 
 
-snakeSqrPerSecond dd 15
+snakeSqrPerSecond dd 12
+proceededAtLeastOnceInMoveDir db 0
 isDead db 0
 snakeSize db 0
 
@@ -147,6 +149,9 @@ prepareSnake:
 
 ; [Parameter1]rcx = dir Y, [Parameter2]rdx = dir X
 change_direction:
+    cmp byte[proceededAtLeastOnceInMoveDir], 0
+    je .done
+
     lea rsi, [moveDir]
 
     cmp byte [rsi], 0
@@ -183,7 +188,7 @@ change_direction:
 .applyInput:
     mov byte [rsi], dl
     mov byte [rsi + 1], cl
-
+    mov byte [proceededAtLeastOnceInMoveDir], 0
     jmp .done
 .done:
     ret
@@ -191,6 +196,9 @@ change_direction:
 move:
     push rbx
     push rbp
+
+    cmp byte [isDead], 1
+    je .exit_early
 
     lea rbx, [snake]
     mov rbp, [snakeSize]
@@ -205,7 +213,9 @@ move:
 
     movsx r12d, byte [rsi]        ; Y
     movsx r13d, byte [rsi + 1]    ; X
+    jmp .pre_update_positions_loop
 
+.pre_update_positions_loop:
 
     ;update this pos
     add dword [rbx + SnakeSegment.PosX], r13d
@@ -214,22 +224,22 @@ move:
     mov dword [rbx + SnakeSegment.OldPosY], r15d
 
 
-     ; currIdx
+    ; currIdx
     mov r10, 0
 
+    ;--REQUIRES R10--
     ;handle wrapping for head
     call wrap_row_if_required
     call wrap_column_if_required
 
 
     ; inc by 1 beacuse head is handled
-
     inc r10
 
     ;if currIdx >= snakeSize then go to done
     cmp r10, rbp
-    jge .done
-
+    jge .pre_validate_collision
+    jmp .propagate_loop
 .propagate_loop:
 
     ; addressOfSnake + currIdx * sizeOf(snakeStruc)
@@ -256,10 +266,49 @@ move:
     call wrap_row_if_required
     call wrap_column_if_required
 
+
+    mov byte [proceededAtLeastOnceInMoveDir], 1
+
+
     cmp r10, rbp
     jl .propagate_loop
 
     ;jg .done
+
+.pre_validate_collision:
+
+    ;don't need to check collision when there's only head
+    cmp rbp, 1
+    je .done
+
+
+    ; currIdx 1, because we ignore head which is 0
+    mov r10, 1
+    mov edi, [rbx + SnakeSegment.PosX]
+    mov edx, [rbx + SnakeSegment.PosY]
+    jmp .validate_collision
+
+.validate_collision:
+    inc r10
+    cmp r10, rbp
+    jge .done
+
+    imul r8, r10, SnakeSegment_size
+    lea r11, [rbx + r8]
+
+    ; compare PosX and PosY, if both are equal then set isDead flag to true
+    cmp edi, [r11 + SnakeSegment.PosX]
+    jne .validate_collision
+
+    cmp edx, [r11 + SnakeSegment.PosY]
+    jne .validate_collision
+
+    jmp .mark_as_dead
+
+
+.mark_as_dead:
+    mov byte [isDead], 1
+    jmp .exit_early
 
 .done:
  ;handle food
@@ -272,6 +321,11 @@ move:
 
     cmp rax, 1
     je .call_try_spawn_food_from_cpp
+    ret
+
+.exit_early:
+    pop rbx
+    pop rbp
     ret
 .call_try_spawn_food_from_cpp:
     call try_spawn_food
