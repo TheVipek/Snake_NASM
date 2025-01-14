@@ -60,5 +60,5 @@ build/
 *.srec      # S-record files
 *.hex       # Hexadecimal output
 
-
+# Visual Studio IDE-specific files
 .vs

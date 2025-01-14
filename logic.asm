@@ -40,7 +40,6 @@ endstruc
 section .data
 
 
-
 snakeSqrPerSecond dd 9
 proceededAtLeastOnceInMoveDir db 0
 isDead db 0
