@@ -486,19 +486,20 @@ spawn_food:
     ; compare x
     mov r12d, [r11 + SnakeSegment.PosX]
     cmp r12d, ecx
-    jne .skip_y_check
+    jne .next_element
 
     ; if x not fail, compare y
     mov r13d, [r11 + SnakeSegment.PosY]
     cmp r13d, edx
-    jne .skip_y_check
+    jne .next_element
 
+    jmp .incorrect_pos
     ; both x and y failed
 .incorrect_pos:
     mov rax, 0 ; mark as failed
     jmp .done
 
-.skip_y_check:
+.next_element:
     inc r10
     cmp r10, rbp
     jl .check_snake_positions ; loop while r10 < snakeSize
@@ -507,9 +508,9 @@ spawn_food:
     lea rdi, board
 
     ; calculating offset
-    mov r15, rdx
+    mov r15, rcx
     imul r15, BOARD_SIZE
-    add r15, rcx
+    add r15, rdx
 
     cmp r15, BOARD_SIZE * BOARD_SIZE
     jge .incorrect_pos
