@@ -24,3 +24,8 @@ g++ -o windowsRender.exe windowsRender.cpp logic.obj resources.o -mwindows -lwin
 ```bash
 .\windowsRender.exe
 ```
+
+## Screenshots
+
+![screenshot1](https://github.com/user-attachments/assets/36467b66-b535-431a-8a16-5a7759ff7f1a)
+![screenshot2](https://github.com/user-attachments/assets/5ffcd655-7438-414e-aead-cd3bd9afbdde)
